@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>deadbeef — tiling window manager for Windows</title>
+<title>deadbeef · tiling window manager for Windows</title>
 <meta name="description" content="A Hyprland-inspired tiling window manager for Windows 10/11, written in Rust. Dwindle & master layouts, animated borders, built-in bar, launcher, Lua scripting.">
 <meta name="theme-color" content="#0d0d0f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -441,15 +441,15 @@
       <div class="section-head">
         <span class="chip" data-animate="fade-up"><span class="dot"></span>Features</span>
         <h2 data-animate="fade-up">Everything you'd rice on Linux.<br><span class="grad-text">Running on Windows.</span></h2>
-        <p data-animate="fade-up">No compositor replacement, no hacks — pure Win32 API calls like <code>SetWindowPos</code> and <code>DwmSetWindowAttribute</code>.</p>
+        <p data-animate="fade-up">No compositor replacement, no hacks. Just pure Win32 API calls like <code>SetWindowPos</code> and <code>DwmSetWindowAttribute</code>.</p>
       </div>
 
-      <div class="ring-stage" id="ringStage" data-animate="fade-up" tabindex="0" role="region" aria-roledescription="carousel" aria-label="Features — drag or use arrow keys">
+      <div class="ring-stage" id="ringStage" data-animate="fade-up" tabindex="0" role="region" aria-roledescription="carousel" aria-label="Features: drag or use arrow keys">
         <ol class="ring" id="ring">
           <li class="ring-card">
             <div class="rc-top"><span class="rc-num">01</span><span class="rc-tag">Layout</span></div>
             <h3>Dwindle + Master Layouts</h3>
-            <p>Hyprland-identical tiling logic. Every new window splits the focused one — or stacks beside a master.</p>
+            <p>Hyprland-identical tiling logic. Every new window splits the focused one, or stacks beside a master.</p>
           </li>
           <li class="ring-card">
             <div class="rc-top"><span class="rc-num">02</span><span class="rc-tag">Render</span></div>
@@ -459,7 +459,7 @@
           <li class="ring-card">
             <div class="rc-top"><span class="rc-num">03</span><span class="rc-tag">Bar</span></div>
             <h3>Built-in Top Bar</h3>
-            <p>Workspaces, clock, CPU, RAM, Wi-Fi, volume and battery — themed with the rest of your setup.</p>
+            <p>Workspaces, clock, CPU, RAM, Wi-Fi, volume and battery, themed with the rest of your setup.</p>
           </li>
           <li class="ring-card">
             <div class="rc-top"><span class="rc-num">04</span><span class="rc-tag">Desktop</span></div>
@@ -469,7 +469,7 @@
           <li class="ring-card">
             <div class="rc-top"><span class="rc-num">05</span><span class="rc-tag">Launcher</span></div>
             <h3>App Launcher <kbd>Win</kbd> <kbd>R</kbd></h3>
-            <p>Fuzzy app search, an inline calculator and web search — one keystroke away.</p>
+            <p>Fuzzy app search, an inline calculator and web search, one keystroke away.</p>
           </li>
           <li class="ring-card">
             <div class="rc-top"><span class="rc-num">06</span><span class="rc-tag">Scripting</span></div>
@@ -500,7 +500,7 @@
       <div class="block">
         <div class="block-visual" data-animate="slide-left">
           <div class="terminal glass" id="terminal">
-            <div class="term-head"><i></i><i></i><i></i><span>Windows Terminal — pwsh</span></div>
+            <div class="term-head"><i></i><i></i><i></i><span>Windows Terminal · pwsh</span></div>
             <div class="term-body" aria-label="Terminal running deadbeef.exe --install">
 <div class="line cmd" style="opacity:1;transform:none"><span class="prompt">PS C:\Users\you&gt;</span> <span class="typed">.\deadbeef.exe --install</span></div>
 <div class="line" style="--i:0"><span class="info">::</span> deadbeef <span class="hl">v0.1.0</span> <span class="dim">(x86_64-pc-windows-msvc)</span></div>
@@ -517,7 +517,7 @@
         <div class="block-text" data-animate="slide-right">
           <span class="chip"><span class="dot"></span>One binary</span>
           <h2>Install in a <span class="grad-text">single command.</span></h2>
-          <p>Run it once and deadbeef installs itself — Start menu entry, Apps &amp; features listing, and your first profile — then hands you the Settings app. No installer wizard, no runtime to fetch.</p>
+          <p>Run it once and deadbeef installs itself (Start menu entry, Apps &amp; features listing and your first profile), then hands you the Settings app. No installer wizard, no runtime to fetch.</p>
           <ul class="ticks">
             <li><svg><use href="#i-check"/></svg><span>Imports only Windows system DLLs</span></li>
             <li><svg><use href="#i-check"/></svg><span>Starts tiling at logon via <code>--wm</code></span></li>
@@ -548,10 +548,10 @@
         <div class="block-text" data-animate="slide-left">
           <span class="chip"><span class="dot"></span>Live preview</span>
           <h2>Watch the layout <span class="grad-text">split itself.</span></h2>
-          <p>Each new window halves the focused one, alternating direction with the aspect ratio — exactly like Hyprland's dwindle. Prefer a big main window? Switch to master and the rest stack beside it.</p>
+          <p>Each new window halves the focused one, alternating direction with the aspect ratio, exactly like Hyprland's dwindle. Prefer a big main window? Switch to master and the rest stack beside it.</p>
           <ul class="ticks">
             <li><svg><use href="#i-check"/></svg><span>Settings app previews your real monitor size</span></li>
-            <li><svg><use href="#i-check"/></svg><span>Gaps, borders, rounding and opacity — before you apply</span></li>
+            <li><svg><use href="#i-check"/></svg><span>Gaps, borders, rounding and opacity, before you apply</span></li>
             <li><svg><use href="#i-check"/></svg><span>Workspaces mapped to Windows virtual desktops</span></li>
           </ul>
         </div>
@@ -569,7 +569,7 @@
       <div class="config-side" data-animate="slide-right">
         <span class="chip"><span class="dot"></span>Config</span>
         <h2>Configure like <span class="grad-text">Hyprland</span></h2>
-        <p>Bring your muscle memory. The same sections, keys and bind syntax you already know — edit, save, and watch your desktop update.</p>
+        <p>Bring your muscle memory. The same sections, keys and bind syntax you already know. Edit, save and watch your desktop update.</p>
         <div class="pills">
           <div class="pill glass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h13"/></svg><b>Hyprland grammar</b><small>.conf</small></div>
           <div class="pill glass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg><b>Hot-reload on save</b><small>instant</small></div>
@@ -596,7 +596,7 @@
         <li class="step glass" data-animate="fade-up" data-stagger>
           <span class="step-num grad-text">02</span>
           <h3>Run it</h3>
-          <p>Settings opens on first launch — nothing tiles until you say so.</p>
+          <p>Settings opens on first launch. Nothing tiles until you say so.</p>
         </li>
         <li class="step glass" data-animate="fade-up" data-stagger>
           <span class="step-num grad-text">03</span>
@@ -639,7 +639,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite">
   <span class="check">✓</span>
-  <span><code>deadbeef.exe</code> — check your Downloads folder</span>
+  <span><code>deadbeef.exe</code> downloaded. Check your Downloads folder</span>
 </div>
 
 <script>
