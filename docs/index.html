@@ -1,0 +1,1054 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>deadbeef — tiling window manager for Windows</title>
+<meta name="description" content="A Hyprland-inspired tiling window manager for Windows 10/11, written in Rust. Dwindle & master layouts, animated borders, built-in bar, launcher, Lua scripting.">
+<meta name="theme-color" content="#0d0d0f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --bg-2: #111218;
+    --text: #a0a0b0;
+    --text-dim: #8888a0;
+    --text-hi: #ececf4;
+    --cyan: #88c0d0;
+    --blue: #81a1c1;
+    --violet: #b48ead;
+    --green: #a3be8c;
+    --yellow: #ebcb8b;
+    --red: #bf616a;
+    --grad: linear-gradient(120deg, var(--cyan) 0%, var(--blue) 50%, var(--violet) 100%);
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.07);
+    --radius: 16px;
+    --radius-sm: 8px;
+    --font-head: "Space Grotesk", system-ui, sans-serif;
+    --font-body: "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    --gutter: clamp(16px, 4vw, 48px);
+    --maxw: 1200px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    background-image: radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: var(--text);
+    font: 400 16px/1.65 var(--font-body);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { font-family: var(--font-head); color: var(--text-hi); margin: 0; letter-spacing: -0.02em; line-height: 1.1; }
+  p { margin: 0; }
+  a { color: inherit; }
+  code, pre, kbd { font-family: var(--font-mono); }
+  ::selection { background: rgba(136, 192, 208, 0.3); color: #fff; }
+
+  .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 var(--gutter); }
+  .grad-text {
+    background: var(--grad);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--glass-border);
+    background: rgba(136, 192, 208, 0.06);
+    color: var(--cyan);
+    font: 600 11px/1.4 var(--font-mono);
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+
+  section { position: relative; padding: clamp(80px, 12vw, 140px) 0; }
+  .section-head { text-align: center; max-width: 680px; margin: 0 auto clamp(40px, 6vw, 64px); }
+  .section-head h2 { font-size: clamp(32px, 5vw, 48px); font-weight: 800; letter-spacing: -0.03em; margin: 16px 0 14px; }
+  .section-head p { color: var(--text-dim); font-size: 17px; }
+
+  /* ── Nav ─────────────────────────────────────────── */
+  .nav {
+    position: fixed; inset: 0 0 auto 0; z-index: 50;
+    transition: background 0.3s, border-color 0.3s;
+    border-bottom: 1px solid transparent;
+  }
+  .nav.scrolled { background: rgba(13, 13, 15, 0.72); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border-bottom-color: var(--glass-border); }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .logo { display: flex; align-items: center; gap: 10px; font: 700 18px var(--font-head); color: var(--text-hi); text-decoration: none; letter-spacing: -0.02em; }
+  .logo-mark { width: 26px; height: 26px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 3px; }
+  .logo-mark i { border-radius: 3px; background: var(--grad); }
+  .logo-mark i:first-child { grid-row: span 2; }
+  .nav-links { display: flex; gap: 28px; align-items: center; }
+  .nav-links a { text-decoration: none; font-size: 14px; color: var(--text-dim); transition: color 0.2s; }
+  .nav-links a:hover { color: var(--text-hi); }
+  .nav-gh { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid var(--glass-border); border-radius: 999px; }
+  @media (max-width: 720px) { .nav-links a:not(.nav-gh) { display: none; } }
+
+  /* ── Buttons ─────────────────────────────────────── */
+  .btn {
+    position: relative;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    height: 52px; padding: 0 28px;
+    border-radius: 999px; border: 0;
+    font: 600 15px var(--font-body);
+    text-decoration: none; cursor: pointer; white-space: nowrap;
+    transition: transform 0.25s cubic-bezier(.2,.8,.2,1), box-shadow 0.25s, background 0.25s, border-color 0.25s;
+  }
+  .btn svg { width: 18px; height: 18px; flex: none; }
+  .btn-primary { background: var(--grad); color: #0d0d0f; box-shadow: 0 0 0 rgba(136, 192, 208, 0); }
+  .btn-primary .ver { font: 500 12px var(--font-mono); padding: 3px 8px; border-radius: 6px; background: rgba(13, 13, 15, 0.18); }
+  .btn-primary:hover { transform: scale(1.04); box-shadow: 0 0 32px rgba(136, 192, 208, 0.45), 0 0 64px rgba(180, 142, 173, 0.25); }
+  .btn-primary.pulse:not(:hover):not(.loading) { animation: pulse 2s ease-in-out infinite; }
+  .btn-ghost { background: rgba(255, 255, 255, 0.03); color: var(--text-hi); border: 1px solid rgba(255, 255, 255, 0.12); }
+  .btn-ghost:hover { border-color: rgba(136, 192, 208, 0.5); background: rgba(136, 192, 208, 0.06); transform: translateY(-1px); }
+  .btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+  .btn .spinner { display: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(13,13,15,0.25); border-top-color: #0d0d0f; animation: spin 0.7s linear infinite; }
+  .btn.loading .spinner { display: block; }
+  .btn.loading .icon-dl, .btn.loading .ver { display: none; }
+  @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Hero ────────────────────────────────────────── */
+  .hero { min-height: 100vh; min-height: 100svh; display: grid; place-items: center; padding: 96px 0 64px; overflow: hidden; isolation: isolate; }
+  .orb {
+    position: absolute; z-index: -2; border-radius: 50%; filter: blur(80px); pointer-events: none;
+    width: min(70vw, 720px); aspect-ratio: 1;
+  }
+  .orb-a { background: radial-gradient(circle, rgba(136, 192, 208, 0.38), transparent 65%); top: -10%; left: -10%; animation: drift-a 22s ease-in-out infinite alternate; }
+  .orb-b { background: radial-gradient(circle, rgba(180, 142, 173, 0.34), transparent 65%); bottom: -20%; right: -12%; animation: drift-b 26s ease-in-out infinite alternate; }
+  @keyframes drift-a { to { transform: translate(28vw, 18vh) scale(1.15); } }
+  @keyframes drift-b { to { transform: translate(-24vw, -22vh) scale(0.9); } }
+
+  .hero-grid {
+    position: absolute; z-index: -1; inset: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    -webkit-mask-image: radial-gradient(ellipse 85% 75% at center, #000 45%, transparent 100%);
+            mask-image: radial-gradient(ellipse 85% 75% at center, #000 45%, transparent 100%);
+  }
+
+  .hero-inner { text-align: center; display: flex; flex-direction: column; align-items: center; }
+  .hero h1 {
+    font-size: clamp(56px, 13vw, 96px); font-weight: 800; letter-spacing: -3px;
+    margin: 28px 0 18px; line-height: 1;
+    filter: drop-shadow(0 0 40px rgba(136, 192, 208, 0.18));
+  }
+  .hero .tagline { font-size: 18px; color: var(--text-dim); max-width: 520px; }
+  .cta-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: 40px; }
+  .meta-line { margin-top: 22px; font: 400 13px var(--font-mono); color: #6c6c80; }
+  .meta-line span { color: #4a4a5a; padding: 0 6px; }
+  .scroll-hint { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); color: #4a4a5a; animation: bob 2.4s ease-in-out infinite; }
+  .scroll-hint svg { width: 22px; height: 22px; }
+  @keyframes bob { 50% { transform: translate(-50%, 6px); } }
+  @media (max-width: 480px) {
+    .cta-row { width: 100%; flex-direction: column; }
+    .cta-row .btn { width: 100%; }
+    .chip { font-size: 10px; letter-spacing: 0.08em; }
+  }
+
+  /* ── Features ────────────────────────────────────── */
+  /* Circle gallery: cards sit on a large wheel, only its top arc is visible */
+  .ring-stage {
+    --card-w: 320px; --card-h: 270px;
+    position: relative; height: 480px; overflow: hidden;
+    touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+            mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+  }
+  .ring-stage:focus-visible { outline: none; }
+  .ring-stage:focus-visible .ring-card.active { outline: 2px solid rgba(255,255,255,0.5); outline-offset: 4px; }
+  .ring-stage.dragging { cursor: grabbing; }
+  .ring { position: absolute; left: 50%; top: 0; width: 0; height: 0; list-style: none; margin: 0; padding: 0; }
+  .ring-card {
+    position: absolute;
+    width: var(--card-w); height: var(--card-h);
+    left: calc(var(--card-w) / -2); top: calc(var(--card-h) / -2);
+    padding: 26px 26px 28px;
+    display: flex; flex-direction: column;
+    background: #121216; border: 1px solid rgba(255,255,255,0.09); border-radius: var(--radius);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+    will-change: transform, opacity;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .ring-card.active { border-color: rgba(255,255,255,0.24); background: #17171c; }
+  .rc-top { display: flex; justify-content: space-between; align-items: center; }
+  .rc-num { font: 500 13px var(--font-mono); color: #55555f; }
+  .rc-tag { font: 500 11px var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: #6a6a74; border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-sm); padding: 4px 10px; }
+  .ring-card h3 { margin-top: auto; font-size: 24px; font-weight: 700; letter-spacing: -0.025em; color: #e6e6ea; }
+  .ring-card p { margin-top: 10px; font-size: 15px; color: #8a8a96; }
+  .ring-card kbd { font-size: 0.6em; vertical-align: 0.25em; padding: 2px 7px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); color: #c8c8d0; font-weight: 500; letter-spacing: 0; }
+  .ring-controls { display: flex; align-items: center; justify-content: center; gap: 20px; margin-top: 8px; }
+  .ring-controls button { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: transparent; border: 1px solid rgba(255,255,255,0.14); color: #c8c8d0; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+  .ring-controls button:hover { border-color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.03); }
+  .ring-controls button:focus-visible { outline: 2px solid rgba(255,255,255,0.5); outline-offset: 3px; }
+  .ring-controls svg { width: 18px; height: 18px; }
+  .ring-status { font: 400 12px var(--font-mono); color: #6a6a74; min-width: 150px; text-align: center; }
+  /* Without JS, fall back to a plain grid */
+  html:not(.js) .ring-stage { height: auto; overflow: visible; -webkit-mask-image: none; mask-image: none; cursor: auto; }
+  html:not(.js) .ring { position: static; width: auto; height: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  html:not(.js) .ring-card { position: static; width: auto; }
+  html:not(.js) .ring-controls { display: none; }
+  .step kbd { font-size: 12px; padding: 1px 6px; border-radius: 5px; background: var(--bg-2); border: 1px solid var(--glass-border); color: var(--cyan); }
+
+  .extras { max-width: 1040px; margin: 28px auto 0; display: flex; flex-wrap: wrap; gap: 6px 0; font: 400 13px var(--font-mono); color: #6a6a74; }
+  .extras span:not(:last-child)::after { content: "/"; padding: 0 14px; color: #3c3c46; }
+
+  /* ── Showcase ────────────────────────────────────── */
+  .showcase { display: flex; flex-direction: column; gap: clamp(80px, 10vw, 128px); }
+  .block { display: grid; grid-template-columns: 1.1fr 1fr; gap: clamp(32px, 5vw, 72px); align-items: center; }
+  .block.reverse { grid-template-columns: 1fr 1.1fr; }
+  .block.reverse .block-visual { order: 2; }
+  @media (max-width: 880px) {
+    .block, .block.reverse { grid-template-columns: 1fr; }
+    .block.reverse .block-visual { order: 0; }
+  }
+  .block-text h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 800; letter-spacing: -0.03em; margin: 16px 0 16px; }
+  .block-text p { font-size: 16px; margin-bottom: 20px; }
+  .ticks { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .ticks li { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; }
+  .ticks li svg { width: 18px; height: 18px; color: var(--cyan); flex: none; margin-top: 3px; }
+  .ticks code { font-size: 13px; color: var(--cyan); }
+
+  .terminal { overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.5); background: rgba(17, 18, 24, 0.82); }
+  .term-head { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--glass-border); }
+  .term-head i { width: 11px; height: 11px; border-radius: 50%; background: #2c2c36; }
+  .term-head span { margin-left: 10px; font: 400 12px var(--font-mono); color: #5c5c70; }
+  .term-body { padding: 20px 22px 24px; font: 400 13.5px/1.85 var(--font-mono); min-height: 300px; color: var(--text); overflow-x: auto; }
+  .term-body .line { opacity: 0; transform: translateY(4px); white-space: pre; }
+  .terminal.is-visible .line { animation: line-in 0.3s forwards; animation-delay: calc(var(--i) * 0.42s + 1.2s); }
+  .terminal.is-visible .line.cmd { animation-delay: 0.1s; }
+  .term-body .prompt { color: var(--violet); }
+  .term-body .typed { display: inline-block; overflow: hidden; vertical-align: bottom; width: 0; color: var(--cyan); }
+  .terminal.is-visible .typed { animation: type 1s steps(22) 0.3s forwards; }
+  .term-body .ok { color: var(--green); }
+  .term-body .info { color: var(--blue); }
+  .term-body .dim { color: #5c5c70; }
+  .term-body .hl { color: var(--yellow); }
+  .caret { display: inline-block; width: 8px; height: 16px; background: var(--cyan); vertical-align: -3px; animation: blink 1s steps(1) infinite; }
+  @keyframes type { to { width: 22ch; } }
+  @keyframes line-in { to { opacity: 1; transform: none; } }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .layout-demo { padding: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.5); background: rgba(17, 18, 24, 0.7); }
+  .ld-bar { height: 26px; border-radius: 8px; background: var(--bg-2); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; margin-bottom: 10px; font: 500 11px var(--font-mono); color: #6c6c80; }
+  .ld-ws { display: flex; gap: 5px; }
+  .ld-ws i { width: 14px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); }
+  .ld-ws i.on { width: 22px; background: var(--cyan); }
+  .ld-screen { position: relative; aspect-ratio: 16 / 10; }
+  .ld-win {
+    position: absolute; border-radius: 9px;
+    background: linear-gradient(#14151c, #14151c) padding-box, linear-gradient(rgba(255,255,255,0.09), rgba(255,255,255,0.09)) border-box;
+    border: 2px solid transparent;
+    transition: left 0.6s cubic-bezier(.2,.8,.2,1), top 0.6s cubic-bezier(.2,.8,.2,1), width 0.6s cubic-bezier(.2,.8,.2,1), height 0.6s cubic-bezier(.2,.8,.2,1), opacity 0.4s;
+    display: flex; flex-direction: column; padding: 10px; overflow: hidden;
+    font: 500 11px var(--font-mono); color: #5c5c70;
+  }
+  .ld-win.focused { background: linear-gradient(#14151c, #14151c) padding-box, var(--grad) border-box; color: var(--cyan); box-shadow: 0 0 24px rgba(136,192,208,0.15); }
+  .ld-win .lines { margin-top: 8px; display: grid; gap: 5px; }
+  .ld-win .lines i { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.07); }
+  .ld-win .lines i:nth-child(2) { width: 70%; }
+  .ld-win .lines i:nth-child(3) { width: 45%; }
+  .ld-win.hidden { opacity: 0; }
+  .ld-caption { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font: 400 12px var(--font-mono); color: #6c6c80; gap: 12px; flex-wrap: wrap; }
+  .ld-caption b { color: var(--cyan); font-weight: 500; }
+  .ld-toggle { display: inline-flex; border-radius: 8px; border: 1px solid var(--glass-border); overflow: hidden; }
+  .ld-toggle button { background: transparent; border: 0; color: #6c6c80; font: 500 12px var(--font-mono); padding: 6px 12px; cursor: pointer; }
+  .ld-toggle button.on { background: rgba(136,192,208,0.12); color: var(--cyan); }
+
+  /* ── Config ──────────────────────────────────────── */
+  .config {
+    background-color: #0a0a0c;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 48px 48px;
+    border-top: 1px solid var(--glass-border); border-bottom: 1px solid var(--glass-border);
+  }
+  .config-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: clamp(28px, 4vw, 56px); align-items: center; }
+  @media (max-width: 880px) { .config-grid { grid-template-columns: 1fr; } }
+  .code-card { overflow: hidden; background: rgba(17, 18, 24, 0.9); box-shadow: 0 30px 80px rgba(0,0,0,0.5); }
+  .code-card .term-head span { margin-left: 10px; }
+  .code-card pre { margin: 0; padding: 22px 24px 26px; font-size: 14px; line-height: 1.85; overflow-x: auto; color: #c8c8d4; counter-reset: ln; }
+  .code-card pre .l { display: block; }
+  .code-card pre .l::before { counter-increment: ln; content: counter(ln); display: inline-block; width: 2ch; margin-right: 18px; text-align: right; color: #3c3c4a; }
+  .tk-sec { color: var(--violet); font-weight: 700; }
+  .tk-key { color: var(--cyan); }
+  .tk-op { color: #6c6c80; }
+  .tk-num { color: var(--yellow); }
+  .tk-fn { color: var(--blue); }
+  .tk-col { color: var(--green); }
+  .tk-str { color: var(--green); }
+  .tk-kw { color: var(--red); }
+  .config-side h2 { font-size: clamp(32px, 4.5vw, 46px); font-weight: 800; letter-spacing: -0.03em; margin: 16px 0 16px; }
+  .config-side p { margin-bottom: 28px; }
+  .pills { display: flex; flex-direction: column; gap: 12px; }
+  .pill { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 999px; }
+  .pill svg { width: 20px; height: 20px; color: var(--cyan); flex: none; }
+  .pill b { color: var(--text-hi); font-weight: 600; font-size: 15px; }
+  .pill small { margin-left: auto; font: 400 12px var(--font-mono); color: #5c5c70; }
+  @media (max-width: 420px) { .pill small { display: none; } }
+
+  /* ── Steps ───────────────────────────────────────── */
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; position: relative; list-style: none; padding: 0; margin: 0; }
+  .step { padding: 28px 24px; position: relative; }
+  .step-num { font: 800 56px/1 var(--font-head); letter-spacing: -2px; margin-bottom: 18px; display: block; }
+  .step h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .step p { font-size: 14.5px; }
+  .step:not(:last-child)::after {
+    content: ""; position: absolute; top: 56px; right: -20px; width: 20px;
+    border-top: 2px dotted rgba(136, 192, 208, 0.45);
+  }
+  @media (max-width: 960px) {
+    .steps { grid-template-columns: 1fr; gap: 28px; max-width: 560px; margin: 0 auto; }
+    .step { display: grid; grid-template-columns: auto 1fr; column-gap: 22px; }
+    .step-num { grid-row: span 2; font-size: 44px; margin: 0; }
+    .step:not(:last-child)::after { top: auto; bottom: -28px; right: auto; left: 48px; width: 0; height: 28px; border-top: 0; border-left: 2px dotted rgba(136, 192, 208, 0.45); }
+  }
+
+  /* ── Final CTA ───────────────────────────────────── */
+  .final { padding-bottom: 0; overflow: hidden; }
+  .final-card {
+    position: relative; overflow: hidden; text-align: center;
+    padding: clamp(56px, 9vw, 104px) var(--gutter);
+    border-radius: 24px; border: 1px solid rgba(255,255,255,0.08);
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(180, 142, 173, 0.28), transparent 60%),
+      radial-gradient(ellipse at 80% 100%, rgba(136, 192, 208, 0.25), transparent 60%),
+      linear-gradient(135deg, rgba(180, 142, 173, 0.12), rgba(129, 161, 193, 0.06) 50%, rgba(136, 192, 208, 0.12));
+  }
+  .final-card::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px); background-size: 20px 20px; -webkit-mask-image: linear-gradient(transparent, #000 40%, transparent); mask-image: linear-gradient(transparent, #000 40%, transparent); pointer-events: none; }
+  .final h2 { font-size: clamp(36px, 7vw, 56px); font-weight: 800; letter-spacing: -0.035em; position: relative; }
+  .final p { position: relative; margin-top: 16px; color: var(--text-dim); font-size: 17px; }
+  .final .cta-row { position: relative; }
+  footer { padding: 48px 0 40px; text-align: center; font: 400 13px var(--font-mono); color: #5c5c70; }
+  footer a { color: var(--text-dim); text-decoration: none; }
+  footer a:hover { color: var(--cyan); }
+  footer .sep { color: #3c3c4a; padding: 0 8px; }
+
+  /* ── Toast ───────────────────────────────────────── */
+  .toast {
+    position: fixed; right: 20px; bottom: 20px; z-index: 100;
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; max-width: calc(100vw - 40px);
+    background: rgba(17, 18, 24, 0.88); border: 1px solid rgba(136,192,208,0.25); border-radius: 12px;
+    -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 24px rgba(136,192,208,0.1);
+    color: var(--text-hi); font-size: 14px;
+    opacity: 0; transform: translateY(16px); pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s cubic-bezier(.2,.8,.2,1);
+  }
+  .toast.show { opacity: 1; transform: none; }
+  .toast .check { width: 24px; height: 24px; border-radius: 50%; background: var(--grad); color: #0d0d0f; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 13px; }
+  .toast code { color: var(--cyan); font-size: 13px; }
+  @media (max-width: 480px) { .toast { left: 16px; right: 16px; bottom: 16px; max-width: none; } }
+
+  /* ── Scroll animations ───────────────────────────── */
+  [data-animate] { transition: opacity 0.6s ease, transform 0.6s ease; transition-delay: var(--delay, 0ms); }
+  .js [data-animate] { opacity: 0; }
+  .js [data-animate="fade-up"] { transform: translateY(40px); }
+  .js [data-animate="slide-left"] { transform: translateX(-60px); }
+  .js [data-animate="slide-right"] { transform: translateX(60px); }
+  .js [data-animate].is-visible { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    .js [data-animate] { opacity: 1; transform: none; }
+    .term-body .line { opacity: 1; transform: none; }
+    .term-body .typed { width: 22ch; }
+  }
+</style>
+</head>
+<body>
+<script>document.documentElement.classList.add('js');</script>
+
+<!-- SVG symbol sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  </defs>
+</svg>
+
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a href="#top" class="logo" aria-label="deadbeef home">
+      <span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      deadbeef
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#features">Features</a>
+      <a href="#showcase">Showcase</a>
+      <a href="#config">Config</a>
+      <a href="#install">Install</a>
+      <a class="nav-gh" href="https://github.com/ayush78490/deadbeef_windows_tiling_manager" target="_blank" rel="noopener">
+        <svg width="16" height="16"><use href="#i-github"/></svg> GitHub
+      </a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <!-- ─── 1. HERO ──────────────────────────────────── -->
+  <section class="hero">
+    <div class="orb orb-a" aria-hidden="true"></div>
+    <div class="orb orb-b" aria-hidden="true"></div>
+
+    <canvas class="hero-grid" id="heroGrid" aria-hidden="true"></canvas>
+
+    <div class="wrap hero-inner">
+      <!-- <span class="chip" data-animate="fade-up"><span class="dot"></span>Hyprland-Inspired · Windows 10/11 · Rust</span> -->
+      <h1 class="grad-text" data-animate="fade-up" style="--delay:80ms">deadbeef</h1>
+      <p class="tagline" data-animate="fade-up" style="--delay:160ms">A tiling window manager for Windows that actually feels like home.</p>
+      <div class="cta-row" data-animate="fade-up" style="--delay:240ms">
+        <button class="btn btn-primary js-download" type="button">
+          <svg class="icon-dl"><use href="#i-download"/></svg>
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="label">Download .exe</span>
+          <span class="ver">v0.1.0</span>
+        </button>
+        <a class="btn btn-ghost" href="https://github.com/ayush78490/deadbeef_windows_tiling_manager" target="_blank" rel="noopener">
+          View on GitHub <svg><use href="#i-arrow"/></svg>
+        </a>
+      </div>
+      <p class="meta-line" data-animate="fade-up" style="--delay:320ms">Windows 10 / 11<span>·</span>x64<span>·</span>~3.5 MB<span>·</span>No dependencies</p>
+    </div>
+
+    <a href="#features" class="scroll-hint" aria-label="Scroll to features">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+    </a>
+  </section>
+
+  <!-- ─── 2. FEATURES ──────────────────────────────── -->
+  <section id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="chip" data-animate="fade-up"><span class="dot"></span>Features</span>
+        <h2 data-animate="fade-up">Everything you'd rice on Linux.<br><span class="grad-text">Running on Windows.</span></h2>
+        <p data-animate="fade-up">No compositor replacement, no hacks — pure Win32 API calls like <code>SetWindowPos</code> and <code>DwmSetWindowAttribute</code>.</p>
+      </div>
+
+      <div class="ring-stage" id="ringStage" data-animate="fade-up" tabindex="0" role="region" aria-roledescription="carousel" aria-label="Features — drag or use arrow keys">
+        <ol class="ring" id="ring">
+          <li class="ring-card">
+            <div class="rc-top"><span class="rc-num">01</span><span class="rc-tag">Layout</span></div>
+            <h3>Dwindle + Master Layouts</h3>
+            <p>Hyprland-identical tiling logic. Every new window splits the focused one — or stacks beside a master.</p>
+          </li>
+          <li class="ring-card">
+            <div class="rc-top"><span class="rc-num">02</span><span class="rc-tag">Render</span></div>
+            <h3>Animated Borders &amp; Blur</h3>
+            <p>Gradient borders drawn on a Direct2D overlay, plus Mica / Acrylic system blur on Windows 11.</p>
+          </li>
+          <li class="ring-card">
+            <div class="rc-top"><span class="rc-num">03</span><span class="rc-tag">Bar</span></div>
+            <h3>Built-in Top Bar</h3>
+            <p>Workspaces, clock, CPU, RAM, Wi-Fi, volume and battery — themed with the rest of your setup.</p>
+          </li>
+          <li class="ring-card">
+            <div class="rc-top"><span class="rc-num">04</span><span class="rc-tag">Desktop</span></div>
+            <h3>Wallpaper Picker</h3>
+            <p>Search wallhaven.cc right from deadbeef and swap wallpapers with animated transitions.</p>
+          </li>
+          <li class="ring-card">
+            <div class="rc-top"><span class="rc-num">05</span><span class="rc-tag">Launcher</span></div>
+            <h3>App Launcher <kbd>Win</kbd> <kbd>R</kbd></h3>
+            <p>Fuzzy app search, an inline calculator and web search — one keystroke away.</p>
+          </li>
+          <li class="ring-card">
+            <div class="rc-top"><span class="rc-num">06</span><span class="rc-tag">Scripting</span></div>
+            <h3>Lua Scripting</h3>
+            <p>Write custom window rules and macros in Lua. Changes hot-reload the moment you save.</p>
+          </li>
+        </ol>
+      </div>
+      <div class="ring-controls" data-animate="fade-up">
+        <button type="button" id="ringPrev" aria-label="Previous feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m11 6-6 6 6 6"/></svg></button>
+        <span class="ring-status" id="ringStatus" aria-live="polite">01 / 06 · drag to spin</span>
+        <button type="button" id="ringNext" aria-label="Next feature"><svg><use href="#i-arrow"/></svg></button>
+      </div>
+
+      <div class="extras" data-animate="fade-up">
+        <span>Hot-reload on save</span>
+        <span>Live layout preview</span>
+        <span>Pure Win32, no compositor swap</span>
+        <span>~3.5 MB, no dependencies</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── 3. SHOWCASE ──────────────────────────────── -->
+  <section id="showcase" style="padding-top:0">
+    <div class="wrap showcase">
+      <!-- Block A -->
+      <div class="block">
+        <div class="block-visual" data-animate="slide-left">
+          <div class="terminal glass" id="terminal">
+            <div class="term-head"><i></i><i></i><i></i><span>Windows Terminal — pwsh</span></div>
+            <div class="term-body" aria-label="Terminal running deadbeef.exe --install">
+<div class="line cmd" style="opacity:1;transform:none"><span class="prompt">PS C:\Users\you&gt;</span> <span class="typed">.\deadbeef.exe --install</span></div>
+<div class="line" style="--i:0"><span class="info">::</span> deadbeef <span class="hl">v0.1.0</span> <span class="dim">(x86_64-pc-windows-msvc)</span></div>
+<div class="line" style="--i:1"><span class="ok">✓</span> Copied deadbeef.exe, dbctl.exe</div>
+<div class="line" style="--i:2">  <span class="dim">→ %LOCALAPPDATA%\Programs\deadbeef\</span></div>
+<div class="line" style="--i:3"><span class="ok">✓</span> Start menu shortcut created</div>
+<div class="line" style="--i:4"><span class="ok">✓</span> Registered in Apps &amp; features</div>
+<div class="line" style="--i:5"><span class="ok">✓</span> Template <span class="hl">nerdy-deadbeef</span> → profiles\active\</div>
+<div class="line" style="--i:6"><span class="info">::</span> Opening deadbeef Settings…</div>
+<div class="line" style="--i:7"><span class="prompt">PS C:\Users\you&gt;</span> <span class="caret"></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="block-text" data-animate="slide-right">
+          <span class="chip"><span class="dot"></span>One binary</span>
+          <h2>Install in a <span class="grad-text">single command.</span></h2>
+          <p>Run it once and deadbeef installs itself — Start menu entry, Apps &amp; features listing, and your first profile — then hands you the Settings app. No installer wizard, no runtime to fetch.</p>
+          <ul class="ticks">
+            <li><svg><use href="#i-check"/></svg><span>Imports only Windows system DLLs</span></li>
+            <li><svg><use href="#i-check"/></svg><span>Starts tiling at logon via <code>--wm</code></span></li>
+            <li><svg><use href="#i-check"/></svg><span>Clean <code>--uninstall</code> restores every window</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Block B -->
+      <div class="block reverse">
+        <div class="block-visual" data-animate="slide-right">
+          <div class="layout-demo glass" id="layoutDemo">
+            <div class="ld-bar">
+              <div class="ld-ws"><i class="on"></i><i></i><i></i><i></i></div>
+              <span id="ldClock">12:00</span>
+              <span>cpu 4% · ram 38%</span>
+            </div>
+            <div class="ld-screen" id="ldScreen"></div>
+            <div class="ld-caption">
+              <span>layout: <b id="ldLayoutName">dwindle</b> · windows: <b id="ldCount">1</b></span>
+              <span class="ld-toggle" role="group" aria-label="Layout">
+                <button type="button" class="on" data-layout="dwindle">dwindle</button>
+                <button type="button" data-layout="master">master</button>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="block-text" data-animate="slide-left">
+          <span class="chip"><span class="dot"></span>Live preview</span>
+          <h2>Watch the layout <span class="grad-text">split itself.</span></h2>
+          <p>Each new window halves the focused one, alternating direction with the aspect ratio — exactly like Hyprland's dwindle. Prefer a big main window? Switch to master and the rest stack beside it.</p>
+          <ul class="ticks">
+            <li><svg><use href="#i-check"/></svg><span>Settings app previews your real monitor size</span></li>
+            <li><svg><use href="#i-check"/></svg><span>Gaps, borders, rounding and opacity — before you apply</span></li>
+            <li><svg><use href="#i-check"/></svg><span>Workspaces mapped to Windows virtual desktops</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── 4. CONFIG ────────────────────────────────── -->
+  <section id="config" class="config">
+    <div class="wrap config-grid">
+      <div class="code-card glass" data-animate="slide-left">
+        <div class="term-head"><i></i><i></i><i></i><span>%APPDATA%\deadbeef\profiles\active\deadbeef.conf</span></div>
+<pre><code><span class="l"><span class="tk-sec">general</span> <span class="tk-op">{</span></span><span class="l">    <span class="tk-key">gaps_in</span> <span class="tk-op">=</span> <span class="tk-num">5</span></span><span class="l">    <span class="tk-key">col.active_border</span> <span class="tk-op">=</span> <span class="tk-fn">rgba</span><span class="tk-op">(</span><span class="tk-col">88c0d0ff</span><span class="tk-op">)</span> <span class="tk-fn">rgba</span><span class="tk-op">(</span><span class="tk-col">81a1c1ff</span><span class="tk-op">)</span> <span class="tk-num">45deg</span></span><span class="l"><span class="tk-op">}</span></span><span class="l"><span class="tk-kw">bind</span> <span class="tk-op">=</span> <span class="tk-str">SUPER</span><span class="tk-op">,</span> <span class="tk-str">Return</span><span class="tk-op">,</span> <span class="tk-fn">exec</span><span class="tk-op">,</span> wt</span><span class="l"><span class="tk-key">decoration:rounding</span> <span class="tk-op">=</span> <span class="tk-num">8</span></span><span class="l"><span class="tk-sec">bar</span> <span class="tk-op">{</span> <span class="tk-key">enabled</span> <span class="tk-op">=</span> <span class="tk-num">true</span>  <span class="tk-key">modules-center</span> <span class="tk-op">=</span> clock workspaces <span class="tk-op">}</span></span></code></pre>
+      </div>
+      <div class="config-side" data-animate="slide-right">
+        <span class="chip"><span class="dot"></span>Config</span>
+        <h2>Configure like <span class="grad-text">Hyprland</span></h2>
+        <p>Bring your muscle memory. The same sections, keys and bind syntax you already know — edit, save, and watch your desktop update.</p>
+        <div class="pills">
+          <div class="pill glass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h13"/></svg><b>Hyprland grammar</b><small>.conf</small></div>
+          <div class="pill glass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg><b>Hot-reload on save</b><small>instant</small></div>
+          <div class="pill glass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m8 7-5 5 5 5M16 7l5 5-5 5"/></svg><b>Lua scripting</b><small>rules · macros</small></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── 5. INSTALL ───────────────────────────────── -->
+  <section id="install">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="chip" data-animate="fade-up"><span class="dot"></span>Get started</span>
+        <h2 data-animate="fade-up">Tiling in <span class="grad-text">four steps.</span></h2>
+        <p data-animate="fade-up">From download to a riced desktop in about a minute.</p>
+      </div>
+      <ol class="steps">
+        <li class="step glass" data-animate="fade-up" data-stagger>
+          <span class="step-num grad-text">01</span>
+          <h3>Download deadbeef.exe</h3>
+          <p>One ~3.5 MB binary, nothing else to install.</p>
+        </li>
+        <li class="step glass" data-animate="fade-up" data-stagger>
+          <span class="step-num grad-text">02</span>
+          <h3>Run it</h3>
+          <p>Settings opens on first launch — nothing tiles until you say so.</p>
+        </li>
+        <li class="step glass" data-animate="fade-up" data-stagger>
+          <span class="step-num grad-text">03</span>
+          <h3>Pick a layout &amp; apply</h3>
+          <p>Choose dwindle or master, tune the look in the live preview, hit Apply.</p>
+        </li>
+        <li class="step glass" data-animate="fade-up" data-stagger>
+          <span class="step-num grad-text">04</span>
+          <h3>Done</h3>
+          <p>Press <kbd>Win</kbd>+<kbd>F1</kbd> any time for the keybind cheat sheet.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ─── 6. FINAL CTA ─────────────────────────────── -->
+  <section class="final">
+    <div class="wrap">
+      <div class="final-card" data-animate="fade-up">
+        <h2>Ready to rice <span class="grad-text">Windows?</span></h2>
+        <p>Free and open source. Your desktop, finally tiled.</p>
+        <div class="cta-row">
+          <button class="btn btn-primary js-download" type="button">
+            <svg class="icon-dl"><use href="#i-download"/></svg>
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="label">Download .exe</span>
+            <span class="ver">v0.1.0</span>
+          </button>
+          <a class="btn btn-ghost" href="https://github.com/ayush78490/deadbeef_windows_tiling_manager" target="_blank" rel="noopener">
+            <svg><use href="#i-github"/></svg> Star on GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+    <footer>
+      MIT License<span class="sep">·</span><a href="https://github.com/ayush78490" target="_blank" rel="noopener">ayush78490</a><span class="sep">·</span>Built with Rust + Win32
+    </footer>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <span class="check">✓</span>
+  <span><code>deadbeef.exe</code> — check your Downloads folder</span>
+</div>
+
+<script>
+(() => {
+  // Served from the same folder as this page, so one click downloads the file directly.
+  const DOWNLOAD_URL = "deadbeef.exe";
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Nav background once scrolled past the top
+  const nav = document.getElementById("nav");
+  const onScroll = () => nav.classList.toggle("scrolled", window.scrollY > 20);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+
+  // Stagger delays: 80ms between siblings marked data-stagger
+  document.querySelectorAll(".steps").forEach(group => {
+    group.querySelectorAll("[data-stagger]").forEach((el, i) => el.style.setProperty("--delay", `${i * 80}ms`));
+  });
+
+  // Scroll reveal
+  const targets = document.querySelectorAll("[data-animate], #terminal");
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver(entries => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          e.target.classList.add("is-visible");
+          io.unobserve(e.target);
+        }
+      }
+    }, { threshold: 0.15, rootMargin: "0px 0px -40px 0px" });
+    targets.forEach(el => io.observe(el));
+  } else {
+    targets.forEach(el => el.classList.add("is-visible"));
+  }
+
+  // Download buttons pulse while on screen
+  const buttons = document.querySelectorAll(".js-download");
+  if ("IntersectionObserver" in window && !reduceMotion) {
+    const pulseIO = new IntersectionObserver(entries => {
+      for (const e of entries) e.target.classList.toggle("pulse", e.isIntersecting);
+    }, { threshold: 0.6 });
+    buttons.forEach(b => pulseIO.observe(b));
+  }
+
+  // Download behaviour
+  const toast = document.getElementById("toast");
+  let toastTimer;
+  buttons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (btn.classList.contains("loading")) return;
+      const label = btn.querySelector(".label");
+      const original = label.textContent;
+      btn.classList.add("loading");
+      btn.setAttribute("aria-busy", "true");
+      label.textContent = "Downloading…";
+      const a = document.createElement("a");
+      a.href = DOWNLOAD_URL;
+      a.download = "deadbeef.exe";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      clearTimeout(toastTimer);
+      toast.classList.add("show");
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 4500);
+
+      setTimeout(() => {
+        btn.classList.remove("loading");
+        btn.removeAttribute("aria-busy");
+        label.textContent = original;
+      }, 1500);
+    });
+  });
+
+  // ── Layout demo: dwindle / master, computed like the real thing ──
+  const screen = document.getElementById("ldScreen");
+  const countEl = document.getElementById("ldCount");
+  const nameEl = document.getElementById("ldLayoutName");
+  const names = ["wt", "nvim", "firefox", "spotify", "discord"];
+  const MAX = names.length, GAP = 2; // percent
+  let layout = "dwindle", count = 0, growing = true, timer;
+
+  const wins = names.map(n => {
+    const w = document.createElement("div");
+    w.className = "ld-win hidden";
+    w.innerHTML = `<span>${n}</span><div class="lines"><i></i><i></i><i></i></div>`;
+    w.style.cssText = "left:0;top:0;width:100%;height:100%";
+    screen.appendChild(w);
+    return w;
+  });
+
+  // Rects in percent of the screen. Dwindle: each new window splits the last, along its longer side.
+  function dwindle(n) {
+    const out = [];
+    let r = { x: 0, y: 0, w: 100, h: 100 };
+    const aspect = screen.clientWidth / Math.max(1, screen.clientHeight);
+    for (let i = 0; i < n; i++) {
+      if (i === n - 1) { out.push(r); break; }
+      const wide = r.w * aspect >= r.h;
+      if (wide) {
+        out.push({ x: r.x, y: r.y, w: r.w / 2, h: r.h });
+        r = { x: r.x + r.w / 2, y: r.y, w: r.w / 2, h: r.h };
+      } else {
+        out.push({ x: r.x, y: r.y, w: r.w, h: r.h / 2 });
+        r = { x: r.x, y: r.y + r.h / 2, w: r.w, h: r.h / 2 };
+      }
+    }
+    return out;
+  }
+  function master(n) {
+    if (n === 1) return [{ x: 0, y: 0, w: 100, h: 100 }];
+    const out = [{ x: 0, y: 0, w: 55, h: 100 }];
+    const h = 100 / (n - 1);
+    for (let i = 1; i < n; i++) out.push({ x: 55, y: (i - 1) * h, w: 45, h });
+    return out;
+  }
+
+  function render() {
+    const rects = (layout === "dwindle" ? dwindle : master)(Math.max(count, 1));
+    wins.forEach((w, i) => {
+      const on = i < count;
+      w.classList.toggle("hidden", !on);
+      w.classList.toggle("focused", on && i === count - 1);
+      const r = rects[Math.min(i, rects.length - 1)];
+      const g = GAP / 2;
+      w.style.left = `calc(${r.x}% + ${r.x > 0 ? g : 0}%)`;
+      w.style.top = `calc(${r.y}% + ${r.y > 0 ? g * 1.6 : 0}%)`;
+      w.style.width = `calc(${r.w}% - ${(r.x > 0 ? g : 0) + (r.x + r.w < 99.9 ? g : 0)}%)`;
+      w.style.height = `calc(${r.h}% - ${((r.y > 0 ? g : 0) + (r.y + r.h < 99.9 ? g : 0)) * 1.6}%)`;
+    });
+    countEl.textContent = count;
+    nameEl.textContent = layout;
+  }
+
+  function tick() {
+    if (growing) { count++; if (count >= MAX) growing = false; }
+    else { count--; if (count <= 1) growing = true; }
+    render();
+  }
+
+  function start() { if (!timer) { tick(); timer = setInterval(tick, 1400); } }
+  function stop() { clearInterval(timer); timer = null; }
+
+  if (reduceMotion) { count = 3; render(); }
+  else if ("IntersectionObserver" in window) {
+    new IntersectionObserver(([e]) => (e.isIntersecting ? start() : stop()), { threshold: 0.3 })
+      .observe(document.getElementById("layoutDemo"));
+  } else start();
+
+  document.querySelectorAll(".ld-toggle button").forEach(b => {
+    b.addEventListener("click", () => {
+      layout = b.dataset.layout;
+      document.querySelectorAll(".ld-toggle button").forEach(x => x.classList.toggle("on", x === b));
+      if (count === 0) count = 1;
+      render();
+    });
+  });
+  window.addEventListener("resize", render);
+
+  // ── Feature circle gallery: drag to spin, inertia, then snap to the nearest card ──
+  (() => {
+    const stage = document.getElementById("ringStage");
+    const ring = document.getElementById("ring");
+    const status = document.getElementById("ringStatus");
+    const originals = [...ring.children];
+    const COUNT = originals.length;
+    // Two copies around the wheel so neighbours sit close enough to peek in
+    originals.forEach(card => {
+      const copy = card.cloneNode(true);
+      copy.setAttribute("aria-hidden", "true");
+      ring.appendChild(copy);
+    });
+    const cards = [...ring.children];
+    const N = cards.length, STEP = 360 / N, PAD = 36;
+    let R = 800, rot = 0, vel = 0, target = null, dragging = false, raf = 0;
+    let lastX = 0, downX = 0, downCard = null, active = -1;
+
+    const norm = a => ((a % 360) + 540) % 360 - 180;
+
+    function layout() {
+      const cardW = Math.min(320, stage.clientWidth * 0.78);
+      const cardH = cardW < 300 ? 300 : 270;
+      R = (cardW * N) / (2 * Math.PI) * 1.2;
+      stage.style.setProperty("--card-w", cardW + "px");
+      stage.style.setProperty("--card-h", cardH + "px");
+      stage.style.height = PAD + cardH + 150 + "px";
+      ring.style.top = PAD + cardH / 2 + R + "px";
+      update();
+    }
+
+    function update() {
+      let best = 0, bestA = 999;
+      cards.forEach((card, i) => {
+        const a = norm(i * STEP + rot);
+        const far = Math.abs(a);
+        card.style.transform = `rotate(${a}deg) translateY(${-R}px)`;
+        card.style.opacity = Math.max(0, 1 - far / 70).toFixed(3);
+        card.style.visibility = far > 75 ? "hidden" : "visible";
+        if (far < bestA) { bestA = far; best = i; }
+      });
+      if (best !== active) {
+        if (active >= 0) cards[active].classList.remove("active");
+        cards[best].classList.add("active");
+        active = best;
+        status.textContent = `${String(best % COUNT + 1).padStart(2, "0")} / ${String(COUNT).padStart(2, "0")} · drag to spin`;
+      }
+    }
+
+    function frame() {
+      raf = 0;
+      if (!dragging) {
+        if (target !== null) {
+          rot += (target - rot) * (reduceMotion ? 1 : 0.12);
+          if (Math.abs(target - rot) < 0.01) { rot = target; target = null; }
+        } else if (Math.abs(vel) > 0.03) {
+          rot += vel;
+          vel *= 0.95;
+        } else {
+          vel = 0;
+          const snap = Math.round(rot / STEP) * STEP;
+          if (Math.abs(snap - rot) > 0.01) target = snap;
+        }
+      }
+      update();
+      if (dragging || target !== null || vel) raf = requestAnimationFrame(frame);
+    }
+    const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
+
+    function go(dir) {
+      const base = target ?? Math.round(rot / STEP) * STEP;
+      vel = 0;
+      target = base - dir * STEP;
+      kick();
+    }
+
+    stage.addEventListener("pointerdown", e => {
+      if (e.button !== 0) return;
+      dragging = true; vel = 0; target = null;
+      lastX = downX = e.clientX;
+      downCard = e.target.closest(".ring-card");
+      stage.setPointerCapture(e.pointerId);
+      stage.classList.add("dragging");
+      kick();
+    });
+    stage.addEventListener("pointermove", e => {
+      if (!dragging) return;
+      const d = ((e.clientX - lastX) / R) * (180 / Math.PI);
+      lastX = e.clientX;
+      rot += d;
+      vel = vel * 0.6 + d * 0.4;
+    });
+    const release = e => {
+      if (!dragging) return;
+      dragging = false;
+      stage.classList.remove("dragging");
+      // A tap on a side card brings it to the front
+      if (Math.abs(e.clientX - downX) < 6 && downCard) {
+        vel = 0;
+        target = rot - norm(cards.indexOf(downCard) * STEP + rot);
+      }
+      if (reduceMotion) vel = 0;
+      kick();
+    };
+    stage.addEventListener("pointerup", release);
+    stage.addEventListener("pointercancel", release);
+    stage.addEventListener("keydown", e => {
+      if (e.key === "ArrowRight") { go(1); e.preventDefault(); }
+      if (e.key === "ArrowLeft") { go(-1); e.preventDefault(); }
+    });
+    document.getElementById("ringNext").addEventListener("click", () => go(1));
+    document.getElementById("ringPrev").addEventListener("click", () => go(-1));
+
+    if ("ResizeObserver" in window) new ResizeObserver(layout).observe(stage);
+    else window.addEventListener("resize", layout);
+    layout();
+  })();
+
+  // ── Hero cursor grid: cells near the pointer light up, hold, then fade ──
+  (() => {
+    const opts = {
+      cellSize: 60, color: "255, 255, 255", radius: 140,
+      holdTime: 400, fadeDuration: 800,
+      fillOpacity: 0.06, gridOpacity: 0.08, spotlight: 0.6, clickPulse: true,
+    };
+    const hero = document.querySelector(".hero");
+    const canvas = document.getElementById("heroGrid");
+    const ctx = canvas.getContext("2d");
+    const cells = new Map(); // "col,row" -> { t: last touched, k: intensity 0..1 }
+    const pulses = [];       // { x, y, t }
+    let w = 0, h = 0, ox = 0, oy = 0, raf = 0, visible = true;
+    let pointer = null;      // { x, y } in canvas px, null when outside
+
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = hero.clientWidth; h = hero.clientHeight;
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // Center the grid so the hero text sits on a symmetric lattice
+      ox = ((w / 2) % opts.cellSize) - opts.cellSize / 2;
+      oy = ((h / 2) % opts.cellSize) - opts.cellSize / 2;
+      draw(performance.now());
+    }
+
+    // Mark every cell whose center is within `r` of (x, y)
+    function touch(x, y, r, now, band) {
+      const s = opts.cellSize;
+      const c0 = Math.floor((x - r - ox) / s), c1 = Math.floor((x + r - ox) / s);
+      const r0 = Math.floor((y - r - oy) / s), r1 = Math.floor((y + r - oy) / s);
+      for (let c = c0; c <= c1; c++) {
+        for (let rw = r0; rw <= r1; rw++) {
+          const cx = ox + c * s + s / 2, cy = oy + rw * s + s / 2;
+          const d = Math.hypot(cx - x, cy - y);
+          if (d > r || (band && d < r - band)) continue;
+          const k = band ? 1 : 1 - d / r * 0.7;
+          // Keep the brighter value while a cell is still in its hold window
+          const key = c + "," + rw, prev = cells.get(key);
+          cells.set(key, { t: now, k: prev && now - prev.t <= opts.holdTime ? Math.max(prev.k, k) : k });
+        }
+      }
+    }
+
+    function gridPath() {
+      const s = opts.cellSize;
+      ctx.beginPath();
+      for (let x = ox; x <= w; x += s) { ctx.moveTo(Math.round(x) + 0.5, 0); ctx.lineTo(Math.round(x) + 0.5, h); }
+      for (let y = oy; y <= h; y += s) { ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(w, Math.round(y) + 0.5); }
+    }
+
+    function draw(now) {
+      const s = opts.cellSize, col = opts.color;
+      ctx.clearRect(0, 0, w, h);
+
+      // Lit cells
+      for (const [key, cell] of cells) {
+        const age = now - cell.t;
+        const fade = age <= opts.holdTime ? 1 : 1 - (age - opts.holdTime) / opts.fadeDuration;
+        if (fade <= 0) { cells.delete(key); continue; }
+        const [c, rw] = key.split(",").map(Number);
+        ctx.fillStyle = `rgba(${col}, ${opts.fillOpacity * cell.k * fade})`;
+        ctx.fillRect(ox + c * s + 1, oy + rw * s + 1, s - 1, s - 1);
+      }
+
+      // Base grid
+      gridPath();
+      ctx.strokeStyle = `rgba(${col}, ${opts.gridOpacity})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Spotlight: brighter lines fading out around the pointer
+      if (pointer && opts.spotlight > 0) {
+        const r = opts.radius * 1.6;
+        const g = ctx.createRadialGradient(pointer.x, pointer.y, 0, pointer.x, pointer.y, r);
+        g.addColorStop(0, `rgba(${col}, ${opts.spotlight * 0.5})`);
+        g.addColorStop(1, `rgba(${col}, 0)`);
+        gridPath();
+        ctx.strokeStyle = g;
+        ctx.stroke();
+      }
+
+      // Click pulses: an expanding ring that lights the cells it crosses
+      for (let i = pulses.length - 1; i >= 0; i--) {
+        const p = pulses[i], k = (now - p.t) / 900;
+        if (k >= 1) { pulses.splice(i, 1); continue; }
+        const r = 20 + k * Math.max(w, h) * 0.45;
+        touch(p.x, p.y, r, now, s);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(136, 192, 208, ${0.35 * (1 - k)})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+
+    function frame(now) {
+      raf = 0;
+      if (pointer) touch(pointer.x, pointer.y, opts.radius, now);
+      draw(now);
+      if (visible && (pointer || cells.size || pulses.length)) raf = requestAnimationFrame(frame);
+    }
+    const wake = () => { if (!raf && visible && !reduceMotion) raf = requestAnimationFrame(frame); };
+
+    function local(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+    hero.addEventListener("pointermove", e => { pointer = local(e); wake(); });
+    hero.addEventListener("pointerleave", () => { pointer = null; wake(); });
+    if (opts.clickPulse) {
+      hero.addEventListener("pointerdown", e => {
+        if (e.target.closest("a, button")) return;
+        const p = local(e);
+        pulses.push({ x: p.x, y: p.y, t: performance.now() });
+        wake();
+      });
+    }
+
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(([e]) => { visible = e.isIntersecting; wake(); }).observe(hero);
+    }
+    if ("ResizeObserver" in window) new ResizeObserver(resize).observe(hero);
+    else window.addEventListener("resize", resize);
+    resize();
+  })();
+
+  // Bar clock
+  const clock = document.getElementById("ldClock");
+  const setClock = () => clock.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  setClock(); setInterval(setClock, 30000);
+})();
+</script>
+</body>
+</html>
