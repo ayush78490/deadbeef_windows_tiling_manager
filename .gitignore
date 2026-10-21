@@ -1,0 +1,25 @@
+# Build output
+/target
+
+# Rust tooling
+**/*.rs.bk
+*.pdb
+
+# Logs and crash dumps
+*.log
+*.dmp
+
+# Local env / secrets
+.env
+.env.*
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS files
+Thumbs.db
+desktop.ini
+.DS_Store

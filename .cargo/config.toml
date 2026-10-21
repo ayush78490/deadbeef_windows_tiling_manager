@@ -1,0 +1,4 @@
+# Statically link the MSVC C runtime (incl. the vendored Lua C code) so the
+# .exe runs on a clean Windows install without the VC++ redistributable.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
